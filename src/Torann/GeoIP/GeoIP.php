@@ -161,6 +161,24 @@ class GeoIP {
 		return $this->default_location;
 	}
 
+	private $logger;
+
+	/**
+	 * Package logger.
+	 *
+	 * @return Logger
+	 */
+	private function getLogger()
+	{
+		if (empty($this->logger)) {
+			$logFile = 'geoip';
+			$this->logger = new Logger($logFile);
+			$this->logger->pushHandler(new StreamHandler(storage_path("logs/{$logFile}.log"), Logger::ERROR));
+		}
+
+		return $this->logger;
+	}
+
 	private $maxmind;
 
 	/**
@@ -178,6 +196,13 @@ class GeoIP {
 				$this->maxmind = new Client($settings['user_id'], $settings['license_key']);
 			}
 			else {
+				if (empty($settings['database_path'])) {
+					/**
+					 * @deprecated since version 0.2.1
+					 */
+					$settings['database_path'] = database_path('maxmind/GeoLite2-City.mmdb');
+					$this->getLogger()->addWarning('Empty database_path deprecated since version 0.2.1');
+				}
 				$this->maxmind = new Reader($settings['database_path']);
 			}
 		}
@@ -202,12 +227,7 @@ class GeoIP {
 		catch (AddressNotFoundException $e)
 		{
 			$location = $this->default_location;
-
-			$logFile = 'geoip';
-
-			$log = new Logger($logFile);
-			$log->pushHandler(new StreamHandler(storage_path("logs/{$logFile}.log"), Logger::ERROR));
-			$log->addError($e);
+			$this->getLogger()->addError($e);
 		}
 
 		unset($record);
